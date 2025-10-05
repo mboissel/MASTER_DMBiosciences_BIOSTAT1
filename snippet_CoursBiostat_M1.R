@@ -573,6 +573,89 @@ fisher.test(tbl)   # valid for small or unbalanced samples
 cor.test(df$BMI, df$BP, method = "pearson")
 cor.test(df$BMI, df$BP, method = "spearman")
 
+##### ICC #####
+# warning : aggrement is not correlation : 
+
+# Packages for ICC
+library(irr)
+
+# Simulate Teacher A's grades
+set.seed(42)
+teacherA <- round(runif(30, min = 0, max = 20), 1)
+# Teacher B always adds +2 points
+teacherB <- teacherA + 2
+
+# Combine into a data frame
+grades <- data.frame(teacherA, teacherB)
+
+# 1. Pearson Correlation
+correlation <- cor(
+  grades$teacherA, grades$teacherB, method = "pearson"
+)
+print(paste("Pearson correlation:", correlation))
+# [1] "Pearson correlation: 1"
+
+# 2. Intraclass Correlation Coefficient
+icc_result <- irr::icc(
+  grades, model = "twoway", unit = "single", type = "agreement"
+)
+print(icc_result)
+# Single Score Intraclass Correlation
+# 
+# Model: twoway 
+# Type : agreement 
+# 
+# Subjects = 30 
+# Raters = 2 
+# ICC(A,1) = 0.945
+# 
+# F-Test, H0: r0 = 0 ; H1: r0 > 0 
+# F(29,1) = Inf , p = 0 
+# 
+# 95%-Confidence Interval for ICC Population Values:
+#   0.017 < ICC < 0.99
+
+# 3. Visualization
+## basic graph
+plot(
+  grades$teacherA, grades$teacherB, 
+  main = "Teacher A vs Teacher B",
+  xlab = "Teacher A", ylab = "Teacher B", pch = 19, col = "blue"
+)
+abline(0, 1, col = "red", lwd = 2, lty = 2) # Perfect agreement line
+## ggplot2 graph
+library(ggplot2)
+ggplot(grades, aes(x = teacherA, y = teacherB)) +
+  geom_point(color = "blue", size = 2, shape = 21) +
+  geom_abline(
+    intercept = 0, slope = 1, color = "firebrick",
+    linetype = "dashed", size = 1
+  ) +
+  labs(
+    title = "Perfect Correlation but Imperfect ICC", 
+    subtitle = "Teacher A vs Teacher B",
+    x = "Teacher A",
+    y = "Teacher B"
+  ) +
+  theme_minimal(base_size = 14)
+
+## alt pkg for ICC : psych
+library(psych)
+icc_result <- psych::ICC(
+  x = grades, missing = TRUE, alpha = 0.05
+) ## but in this example, return an error : 
+# Erreur dans eval_f(x, ...) : Downdated VtV is not positive definite
+## That error with ICC() in psych happens when you only provide two 
+## raters and the data is perfectly collinear 
+#" (like my +2 constant shift). 
+## The covariance matrix becomes singular (not positive definite).
+
+# fix this example, for demonstration : 
+library(psych)
+teacherB <- teacherA + 2 + rnorm(30, 0, 0.01) # almost perfect +2, tiny noise
+grades <- data.frame(teacherA, teacherB)
+psych::ICC(grades, missing = TRUE, alpha = 0.05)
+
 #### 4.5 – PAIRED TESTING ####
 
 ##### Paired t-test #####
@@ -613,4 +696,5 @@ p.adjust(p_values, method = "BH")
 #### Practical session ####
 
 # https://bookdown.org/ael/rexplor/chap1.html
+
 

@@ -3,14 +3,81 @@
 
 ## Mathilde Boissel 
 
+
+#### basic introduction ####
+
+1 + 1
+1 - 1
+10/2
+10*3
+10%%2 # modulo
+
+# store the result with arrow "<-"
+x <- 1 + 1
+y <- 2 * 2
+z <- x - y
+vec <- c(x, y, z)
+mylist <- list(vec, x)
+mylist
+
+# you can store with "=" but not recommand to avoid confusion with logic test "=="
+
+# logic test
+x == 2
+x %in% vec
+vec %in% x
+TRUE & TRUE
+TRUE & FALSE
+FALSE & FALSE
+TRUE | TRUE
+TRUE | FALSE
+FALSE | FALSE
+
+is.numeric(x)
+is.character(x)
+is.character(x)
+is.factor(x)
+
+?iris # from : # library(datasets)
+head(iris)
+
+is.data.frame(iris)
+is.list(iris) # a data frame is a list of vector
+
+# access to an element of a list : "$"
+iris$Sepal.Length
+is.vector(iris$Sepal.Length)
+is.numric(iris$Sepal.Length)
+
+# also possible with `[[`
+iris[["Species"]]
+is.factor(iris[["Species"]])
+is.character(iris[["Species"]])
+
+my_tab <- data.frame(
+  let = LETTERS[1:10], 
+  num = 11:20, 
+  other = as.factor(c(rep("blue", 5), rep("red", 5)))
+)
+my_tab
+str(my_tab)
+# 'data.frame':	10 obs. of  3 variables:
+#   $ let  : chr  "A" "B" "C" "D" ...
+# $ num  : int  11 12 13 14 15 16 17 18 19 20
+# $ other: Factor w/ 2 levels "blue","red": 1 1 1 1 1 2 2 2 2 2
+
+
+
+
 #### Set up envir ####
+# load pkg
 library(data.table)
 library(ggplot2)
 
 #### 1.1 – ELEMENTS OF CALCULUS ####
 
 ##### 1.1 - D	In practice: R #####
-
+iris # from datasets
 dim(iris) ; nrow(iris) ; ncol(iris) ;
 head(iris)
 summary(iris)
@@ -224,6 +291,90 @@ plot(x, y, type = "l", main = "Gamma(α=2, β=0.5)", ylab = "Density")
 x <- seq(0, 1, length = 100)
 y <- dunif(x, min = 0, max = 1)
 plot(x, y, type = "l", main = "Uniform(0, 1)", ylab = "Density")
+
+
+#### 3. DATA OBS ####
+
+#### 3.1 – DESCRIPTIVE STATISTICS ####
+
+##### ExA #####
+
+collection1 <- c(170, 190, 201, 204, 209, 250, 254, 257, 280)
+length(collection1)
+summary(collection1)
+mean(collection1)
+median(collection1)
+var(collection1)
+sqrt(var(collection1))
+sd(collection1)
+quantile(collection1)
+
+##### ExB #####
+
+collection2 <- c(170, 190, 201, 204, 209, 250, 254, 257, 280, 148)
+sort(collection2)
+dput(sort(collection2))
+
+collection2 <- c(148, 170, 190, 201, 204, 209, 250, 254, 257, 280)
+length(collection2)
+summary(collection2)
+mean(collection2)
+median(collection2)
+var(collection2)
+sqrt(var(collection2))
+sd(collection2)
+quantile(collection2)
+
+##### ExC #####
+# copy the value from word :
+collection3 <- c("Yes	Yes	No	No	No	Yes	No	No	No	No")
+collection3
+# but we want a vect with sep elements : 
+strsplit(x = collection3, split = "\t")
+collection3 <- strsplit(x = collection3, split = "\t")[[1]]
+
+table(collection3)
+table(collection3, useNA = "ifany")
+
+##### ExD #####
+Travel_out_FR <- c("Yes
+No
+No
+No
+Yes
+No")
+Travel_out_FR
+strsplit(Travel_out_FR, split = "\n")
+Travel_out_FR <- strsplit(Travel_out_FR, split = "\n")[[1]]
+table(Travel_out_FR)
+
+Where <- c("Italia
+
+
+
+Spain
+
+")
+Where
+Where <- strsplit(Where, split = "\n")[[1]]
+table(Where, useNA = "always")
+
+is.na(Where) # TRUE / FALSE
+Where %in% "" # FALSE  TRUE  TRUE  TRUE FALSE  TRUE
+Where[Where %in% ""] <- "France"
+# if it was NA : 
+# Where[is.an(Where)] <- "France"
+table(Where, useNA = "always")
+
+# if we want it as NA : 
+Where[Where %in% "France"] <- NA
+table(Where, useNA = "always")
+
+
+##### ExE ####
+boxplot(...)
+
+IQR(...)
 
 
 #### 3.2 – EXPLORATORY DATA ANALYSIS ####
@@ -551,12 +702,18 @@ t.test(BP ~ Group, data = df, var.equal = FALSE)   # Welch’s correction
 
 ##### One-way ANOVA #####
 
+aov(Sepal.Length ~ Species, data = iris)
+
 fit <- aov(Cholesterol ~ Diet, data = df)
 summary(fit)
 
 #####	Wilcoxon-Mann-Whitney test  #####
 
 wilcox.test(VPSAH ~ Group, data = df)
+
+##### Kruskal wallis #####
+
+kruskal.test(Cholesterol ~ Diet, data = df)
 
 ##### Chi2 #####
 
@@ -656,6 +813,7 @@ teacherB <- teacherA + 2 + rnorm(30, 0, 0.01) # almost perfect +2, tiny noise
 grades <- data.frame(teacherA, teacherB)
 psych::ICC(grades, missing = TRUE, alpha = 0.05)
 
+
 #### 4.5 – PAIRED TESTING ####
 
 ##### Paired t-test #####
@@ -674,6 +832,15 @@ t.test(Before, After, paired = TRUE)
 
 wilcox.test(Before, After, paired = TRUE)
 
+##### Anova repeated measures #####
+
+aov_result <- aov(cholesterol ~ time + Error(patient/time), data = data)
+summary(aov_result)
+
+##### Friedman test #####
+
+friedman.test(pain ~ treatment | patient, data = data)
+
 
 ##### Quade #####
 
@@ -689,12 +856,124 @@ p.adjust(p_values, method = "bonferroni")
 p.adjust(p_values, method = "holm")
 p.adjust(p_values, method = "BH")
  
+#### step 5 ####
 
+#### Regression ####
 
+reg <- lm(Y ~ X1 + X2 + X3)
+reg ## returns the estimated coefficients beta
+## To extract a specific coefficient estimate, e.g beta_2:
+reg$coef[3]
+# To obtain the fitted (predicted mean) values of Y, based on the observed X1, X2 et X3 
+predict(reg) # (ou fitted(reg))
+# To predict the mean value of Y for a new observation (X1, X2, X3) = (1.2, 2.2, 6):
+predict(reg, data.frame(X1 = 1.2, X2 = 2.2, X3 = 6))
+# If beta_0 has no meaningful interpretation in your model, remove it with  "-1": 
+reg = lm(Y ~ X1 + X2 + X3 - 1)
 
+# R2
+summary(reg)
+# conf int : 
+confint(reg, level = 0.95)
+predict(reg, data.frame(X1 = 1.2, X2 = 2.2, X3 = 6), interval = "confidence")
 
-#### Practical session ####
+# validation 
 
-# https://bookdown.org/ael/rexplor/chap1.html
+par(mfrow = c(2, 2)); plot(reg, 1:4)
 
+plot(w) # or pairs(w) 
+#  par exemple : pairs(~ Y + X1 + X4).
+car::scatterplotMatrix(w)
+
+# transformation ex 
+ reg = lm(log(Y) ~ sqrt(X1) + exp(X2) + I(X3^4))
+
+# check residuals 
+residuals(reg)
+rstandard(reg)
+
+acf(residuals(reg))
+pacf(residuals(reg))
+
+library(lawstat)
+Box.test(residuals(reg), type = "Ljung")
+
+# interaction 
+
+# To include an interaction term between X1 and X2, you can write:
+reg = lm(Y ~ X1 * X2, data = df)
+# This automatically expands to:
+reg = lm(Y ~ X1 + X2 + X1:X2, data = df)
+# If you only want the interaction term without main effects (rare, but sometimes used), use:
+lm(Y ~ X1:X2, data = df)
+
+interaction.plot(df$X1, df$X2, df$Y)
+
+# multicollinerarity 
+
+cor(df[, c("X1", "X2", "X3")])
+
+library(car)
+vif(reg)
+
+#### 5.3 GLM ####
+
+res <- glm(y ~ x, data = df)
+summary(res)
+plot(res)
+
+## glm gaussian
+# res <- glm(x ~ factor1 + factor2 + ..., family = gaussian)
+res <- glm(y ~ factor1 + factor2, family = gaussian(link = "identity"))
+summary(res)
+plot(res)
+anova(res, test = "F")
+
+# glm poisson 
+# res <- glm(y_count~factor1+factor2, family = poisson)
+res <- glm(y_count ~ factor1+factor2, family = poisson(link = "log"))
+summary(res)
+plot(res)
+anova(res, test = "Chisq")
+
+res <- glm(y_count ~ factor1 + factor2, family = quasipoisson(link = "log"))
+
+# glm binom
+curve(log(x/(1-x)), 0, 1)
+
+res <- glm(cbind(y1, y2) ~ factor1 + factor2, family = binomial(link = "logit"))
+summary(res)
+plot(res)
+anova(res, test = "Chisq")
+
+res <- glm(y_binary ~ factor1 + factor2, family = binomial(link = "logit"))
+summary(res)
+plot(res)
+anova(res, test = "Chisq")
+
+#### 5.4  Model Selection ####
+
+## Metrics
+mean((residuals(reg))^2) # MSE
+AIC(model1, model2, model3)
+BIC(model1, model2, model3)
+
+## CV 80/20
+set.seed(123)
+train_index <- sample(1:nrow(df), 0.8 * nrow(df))
+train <- df[train_index, ]
+test <- df[-train_index, ]
+
+model <- lm(Y ~ X1 + X2, data = train)
+pred <- predict(model, newdata = test)
+mean((test$Y - pred)^2) # MSE on test data
+
+## K-fold CV 
+library(caret)
+train_control <- trainControl(method = "cv", number = 10)
+train(Y ~ X1 + X2, data = df, method = "lm", trControl = train_control)
+
+## LOOCV
+train_control <- trainControl(method = "LOOCV")
+train(Y ~ X1 + X2, data = df, method = "lm", trControl = train_control)
 

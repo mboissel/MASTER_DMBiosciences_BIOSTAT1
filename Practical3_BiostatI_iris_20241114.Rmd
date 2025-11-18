@@ -1,0 +1,442 @@
+---
+title: "Statistical Report - Iris"
+subtitle: "Biostat I - Practical Session 3"
+author: "Mathilde Boissel"
+date: "`r Sys.Date()`"
+output:
+  word_document:
+    toc: yes
+    toc_depth: 3
+always_allow_html: true
+editor_options:
+  chunk_output_type: console
+---
+  
+```{r setup, include = FALSE}
+
+#### path ####
+root_directory <- "C:/Users/boissel_mathilde/Documents"  # change this 
+setwd(root_directory)
+project_directory <- file.path(
+  root_directory,
+  "PracticalSession3"
+)
+dir.create(project_directory, showWarnings = FALSE, recursive = TRUE)
+setwd(project_directory)
+annexe_directory <- file.path(
+  project_directory, "annexes"
+)
+dir.create(annexe_directory, showWarnings = FALSE, recursive = TRUE)
+
+
+knitr::opts_chunk$set(
+  results = "asis",
+  #root_directory = root_directory,
+  size = "small",
+  include = TRUE,
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  dpi = 150,
+  tidy = FALSE,
+  crop = TRUE,
+  autodep = TRUE,
+  fig.align = "center",
+  fig.pos = "!H",
+  cache = FALSE,
+  cache.path = paste0(root_directory, "/cache/"),
+  fig.path = paste0(root_directory, "/cache/")
+  # fig.width = unit(12, "cm"),
+  # fig.height = unit(15, "cm")
+)
+
+
+#### lib #### 
+
+library(data.table)
+library(broom)
+library(gt)
+library(dplyr)
+library(ggplot2)
+library(viridis)
+library(patchwork)
+
+```
+
+<br> 
+
+|  Info 1       | Info 2 ex       |
+|---------------|---------------|
+| what ever     |  what ever 2  |
+| Biostatisticien(ne) en charge de l’analyse     | Mathilde BOISSEL             |
+| Contact                                        | boissel.mathilde@ghicl.net   |
+
+<br> 
+  
+\newpage
+
+# Dataset introduction
+
+----
+
+This famous (Fisher's or Anderson's) iris data set gives the measurements in centimeters of the variable’s sepal length and width and petal length and width, respectively, for 50 flowers from each of 3 species of iris. The species are Iris setosa, versicolor, and virginica.
+
+<br> 
+
+
+```{r mynote1, include = FALSE}
+?datasets::iris
+
+dput(names(iris)) 
+# c("Sepal.Length", "Sepal.Width", "Petal.Length", "Petal.Width", "Species")
+
+```
+
+
+# Scientific question 
+
+A florist wants to become more familiar with the flowers he could sell in his shop! He only has access to two species in the order catalogue: Setosa and Virginica. He is asking himself if: Are the petals significantly different in length between these two species?
+
+<br> 
+
+To answer this, you will need to:
+
++ compare a quantitative variable (petal length)
+
++ across two independent groups (2 specific species)
+
+<br> 
+
+This leads to a classical hypothesis test on group comparison.
+
+\newpage
+
+# Analysis
+
+----			
+
+## 1)	Understand the studied population before testing
+
+<br> 
+
+```{r dfiris2, include = FALSE}
+dfiris2 <- iris[
+  iris$Species %in% c("setosa", "virginica"),
+  c("Petal.Length", "Species")
+]
+## dplyr style
+# dfiris2_dplyr <- iris %>%
+#   filter(Species %in% c("setosa", "virginica")) %>%
+#   select(Petal.Length, Species)
+
+# check variables format 
+
+class(dfiris2$Petal.Length)
+class(dfiris2$Species)
+str(dfiris2)
+nlevels(dfiris2$Species)
+# here we have to fix the levels to used ! 
+
+# either with 
+dfiris2 <- droplevels(dfiris2)
+## nor by targetin especially the column 
+# the_levels_remaining <-  unique(
+  # as.character(dfiris2$Species)
+# ) # after the filter
+# dfiris2$Species <- factor(
+#   dfiris2$Species,
+#   levels = the_levels_remaining,
+#   labels = the_levels_remaining
+# )
+str(dfiris2)
+```
+
+**Tables**
+
+<br> 
+
+```{r tab1}
+my_title <- "Quantitive variable : Petal.Length"
+
+quanti_desc <- broom::tidy(summary(dfiris2$Petal.Length))
+#  skimr::skim(summary(dfiris2$Petal.Length)) # to try 
+quanti_desc$sd = round(sd(dfiris2$Petal.Length), 3)
+quanti_desc$n = length(dfiris2$Petal.Length)
+quanti_desc$n_na = sum(is.na(dfiris2$Petal.Length))
+
+# show the table 
+gt::gt(quanti_desc) %>% 
+  gt::tab_header(title = my_title) %>%
+  gt::opt_row_striping()
+```
+
+<br> 
+
+```{r tab2}
+my_title <- "Qualitative variable : Species"
+
+quali_desc <- as.data.frame(table(dfiris2$Species))
+names(quali_desc)[1] <- "Modalities"
+quali_desc$Variable <- "Species"
+# re order 
+quali_desc <- quali_desc[,c(3,1,2)]
+quali_desc$percentage <- paste0(quali_desc$Freq / sum(quali_desc$Freq) * 100, "%")
+
+# show the table 
+gt::gt(quali_desc) %>% 
+  gt::tab_header(title = my_title) %>%
+  gt::opt_row_striping() %>% 
+  gt::tab_footnote(footnote = paste0(
+    "N = ", length(dfiris2$Species), " ; " ,
+    "Na = ", sum(is.na(dfiris2$Species))
+  ))
+```
+
+<br> 
+
+```{r tab3}
+my_title <- "Cross description"
+
+cross_desc <- dfiris2 %>%
+  select(Petal.Length, Species) %>%
+  group_by(Species) %>%
+  summarise(
+    n = sum(!is.na(Petal.Length)),
+    na = sum(is.na(Petal.Length)),
+    mean = mean(Petal.Length, na.rm = TRUE),
+    median = median(Petal.Length, na.rm = TRUE),
+    sd = round(
+      sd(Petal.Length, na.rm = TRUE), 2
+    ),
+    q1 = quantile(Petal.Length, 0.25, na.rm = TRUE),
+    q3 = quantile(Petal.Length, 0.75, na.rm = TRUE)
+  )
+
+# show the table 
+gt::gt(cross_desc) %>% 
+  gt::tab_header(title = my_title) %>%
+  gt::opt_row_striping()
+```
+
+<br> 
+
+**Figures**
+
+<br> 
+
++ Density plots : 
+
+<br> 
+
+  + basic
+
+<br> 
+
+```{r viz1_basic}
+plot(density(dfiris2$Petal.Length), main = "Density Petal.Length")
+
+plot(
+  density(dfiris2$Petal.Length[dfiris2$Species %in% "setosa"]),
+  main = "Density Petal.Length for setosa"
+)
+
+plot(
+  density(dfiris2$Petal.Length[dfiris2$Species %in% "virginica"]),
+  main = "Density Petal.Length for virginica"
+)
+```
+
+<br>
+
+  + ggplot style
+
+<br> 
+
+```{r viz1_gg}
+gg1 <- ggplot(data = dfiris2, mapping = aes(Petal.Length)) + 
+  geom_density() + 
+  labs(title = "Density Petal.Length") +
+  theme_light()
+
+gg2 <- ggplot(
+  data = dfiris2,
+  mapping = aes(Petal.Length, color = Species)
+) + 
+  geom_density() + 
+  labs(title = "Density Petal.Length by Species") +
+  theme_light()
+
+ggsave(filename = file.path(annexe_directory, "gg1.png"), plot = gg1)
+# save it
+ggsave(filename = file.path(annexe_directory, "gg2.png"), plot = gg2)
+# save it
+
+# and 
+
+gg1 # show it 
+
+gg2
+```
+
+<br>
+
++ Boxplots : 
+
+  + basic
+
+<br> 
+
+```{r viz2}
+boxplot(x = dfiris2$Petal.Length, horizontal = T)
+boxplot(formula = Petal.Length ~ Species, data = dfiris2,  horizontal = T)
+```
+
+<br>
+
+  + ggplot style
+
+<br> 
+
+```{r viz2_gg}
+# see patchwork pkg to combine ggplots
+# ggplot1 + ggplot2
+# ggplot1 / ggplot2
+
+(
+  ggplot(data = dfiris2, mapping = aes(Petal.Length)) + 
+    geom_boxplot() + 
+    labs(title = "boxplot Petal.Length") +
+    theme_light()
+) + 
+  (
+  ggplot(data = dfiris2, mapping = aes(Petal.Length, Species)) + 
+    geom_boxplot() + 
+    labs(title = "boxplot Petal.Length", subtitle = "by Species") +
+    theme_light()
+)
+```
+
+<br>
+
++ Barplots : 
+
+<br> 
+
+  + basic
+
+<br> 
+
+```{r viz3_basic}
+barplot(table(dfiris2$Species), main = "Barplot Species")
+```
+
+<br>
+
+  + ggplot style
+
+<br> 
+
+```{r viz3_gg}
+ggplot(data = dfiris2, mapping = aes(Species)) + 
+  geom_bar() + 
+  labs(title = "Barplot Species") +
+  theme_light()
+```
+
+<br>
+
+\newpage
+
+
+## 2)	Finally, we test it.
+
+<br> 
+
+We want to compare Petal.Length between 2 groups = Species (A = setosa and B = virginica).
+
+Hypotheses:
+
+  + Null hypothesis ($H_0$): The two groups are equal means. $μ_A = μ_B$  
+	
+  + Alternative ($H_1$): The means differ. $μ_A \ne μ_B$  
+	
+Assumptions:
+
+<br>
+
+	+ Data in each group are approximately normal.
+	  Graphically it looks normal for each group. 
+	  Shapiro can help if needed.
+	  But here $n \ge 30$ per group, normality is no longer essential thanks to the central limit theorem.
+
+<br>
+
+```{r test_hyp_norm, include=FALSE}
+# I set include=FALSE here because I dont want to include the results in the report, I just wanted to see, for my information, the results. 
+shapiro.test(dfiris2$Petal.Length[dfiris2$Species %in% "setosa"])
+shapiro.test(dfiris2$Petal.Length[dfiris2$Species %in% "virginica"])
+```
+
+<br>
+
+	+ Variances are equal (for Student’s t-test) or can be relaxed using Welch’s t-test : 
+	  Variance are not equal, we will need Welch’s t-test.
+
+<br>
+
+```{r test_hyp_var, include=FALSE}
+library(car)
+car::leveneTest(Petal.Length ~ Species, data = dfiris2)
+# p = 8.871e-09 ***
+# p > 0.05 → variances égales → Student's t-test
+# p < 0.05 → variances inégales → Welch's t-test
+# also possible but sensible to normality
+bartlett.test(Petal.Length ~ Species, data = dfiris2)
+```
+
+<br>
+
+	+ Observations are independent.
+	  Yes, 2 flowers can only be setosa **or** virginica, not both.
+
+<br>
+
+```{r final_test, echo=TRUE, results="asis"}
+t.test(
+  Petal.Length ~ Species,
+  data = dfiris2,
+  var.equal = FALSE  # Welch’s correction
+)
+# look what happend if you includ like that in the report... 
+# not very beautiful
+```
+
+<br>
+
+```{r final_test_gt}
+# so we will use great table gt pkg and broom tidy glow up this
+mytest <- t.test(
+      Petal.Length ~ Species,
+      data = dfiris2, var.equal = FALSE
+    )
+mytab <- broom::tidy(mytest)
+mytab$statistic <- NULL # remove a column stat 
+mytab$parameter <- NULL # remove a column df
+
+gt::gt(
+  mytab
+) %>% 
+  gt::fmt_number(
+    columns = starts_with("estimate"),
+    decimals = 2,
+    use_seps = F
+  ) %>% 
+  gt::fmt_scientific(columns = "p.value") %>% 
+  gt::tab_header(title = "Statistical Test") 
+```
+
+
+Comment : p.value < 0.05
+
+We can reject H0. The 2 species have different mean petal length.
+

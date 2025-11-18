@@ -1,0 +1,449 @@
+---
+title: "Statistical Report - Penguin"
+subtitle: "Biostat I - Practical Session 3"
+author: "Mathilde Boissel"
+date: "`r Sys.Date()`"
+output:
+  word_document:
+    toc: yes
+    toc_depth: 3
+always_allow_html: true
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include = FALSE}
+
+#### path ####
+root_directory <- "C:/Users/boissel_mathilde/Documents"  
+# change this 
+# "/" for windows, "\" for mac or linux
+
+setwd(root_directory)
+project_directory <- file.path(
+  root_directory,
+  "PracticalSession3"
+)
+dir.create(project_directory, showWarnings = FALSE, recursive = TRUE)
+setwd(project_directory)
+annexe_directory <- file.path(
+  project_directory, "annexes"
+)
+dir.create(annexe_directory, showWarnings = FALSE, recursive = TRUE)
+
+
+knitr::opts_chunk$set(
+  results = "asis",
+  #root_directory = root_directory,
+  size = "small",
+  include = TRUE,
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  dpi = 150,
+  tidy = FALSE,
+  crop = TRUE,
+  autodep = TRUE,
+  fig.align = "center",
+  fig.pos = "!H",
+  cache = FALSE,
+  cache.path = paste0(root_directory, "/cache/"),
+  fig.path = paste0(root_directory, "/cache/")
+  # fig.width = unit(12, "cm"),
+  # fig.height = unit(15, "cm")
+)
+
+
+#### lib #### 
+
+library(data.table)
+library(broom)
+library(gt)
+library(dplyr)
+library(ggplot2)
+# library(viridis)
+library(patchwork)
+
+```
+
+
+<br> 
+  
+\newpage
+
+# Dataset introduction
+
+----
+
+**Study: Measurements of Penguins near Palmer Station, Antarctica**
+
+The -palmerpenguins- dataset contains real biological measurements collected from three penguin species living near Palmer Station, Antarctica. These data were originally collected by Dr. Kristen Gorman and the Palmer Station Long-Term Ecological Research Program (LTER).
+For each penguin, several morphological characteristics were recorded, as well as ecological and biological information. 
+
+<br> 
+
+```{r mynote1, include = FALSE}
+# install.packages("palmerpenguins")
+library(palmerpenguins)
+data("penguins")
+dput(names(penguins)) # easier to copy and paste names
+```
+
+<br> 
+
+# Scientific question 
+
+A marine biologist is interested in better understanding sexual dimorphism in penguins.
+More specifically, the scientist would like to know: Is bill length significantly different between male and female penguins?
+
+Biologically, differences in bill size between sexes may be linked to feeding strategy, competition, or mating selection. Detecting such patterns may help improve species monitoring and ecological interpretation.
+
+<br> 
+
+To answer this, you will need to:
+
+<br> 
+
++ compare a quantitative variable (bill length)
+
++ across two independent groups (sex)
+
+<br> 
+
+This leads to a classical hypothesis test on group comparison.
+
+\newpage
+
+# Analysis
+
+----			
+
+## 1)	Understand the studied population before testing
+
+<br> 
+
+```{r df, include = FALSE}
+head(penguins)
+# check variables format 
+
+class(penguins$bill_length_mm)
+class(penguins$sex)
+str(penguins) # ok +++
+nlevels(penguins$sex) # no modification needed, ok
+
+```
+
+**Tables**
+
+<br> 
+
+```{r tab1}
+my_title <- "Quantitive variable : bill_length_mm"
+
+# summary(penguins$bill_length_mm)
+
+quanti_desc <- broom::tidy(summary(penguins$bill_length_mm))
+#  skimr::skim(summary(penguins$bill_length_mm)) # to try 
+quanti_desc$sd = round(sd(penguins$bill_length_mm, na.rm = T), 3)
+quanti_desc$n = length(penguins$bill_length_mm)
+quanti_desc$n_na = sum(is.na(penguins$bill_length_mm))
+
+# show the table 
+gt::gt(quanti_desc) %>% 
+  gt::tab_header(title = my_title) %>%
+  gt::opt_row_striping()
+```
+
+<br> 
+
+```{r tab2}
+my_title <- "Qualitative variable : Sex"
+
+quali_desc <- as.data.frame(table(penguins$sex))
+names(quali_desc)[1] <- "Modalities"
+quali_desc$Variable <- "Sex"
+# re order 
+quali_desc <- quali_desc[,c(3,1,2)]
+quali_desc$percentage <- paste0(
+  round(quali_desc$Freq / sum(quali_desc$Freq), 4) * 100, "%")
+
+# show the table 
+gt::gt(quali_desc) %>% 
+  gt::tab_header(title = my_title) %>%
+  gt::opt_row_striping() %>% 
+  gt::tab_footnote(footnote = paste0(
+    "N = ", length(penguins$sex), " ; " ,
+    "Na = ", sum(is.na(penguins$sex))
+  ))
+```
+
+<br> 
+
+
+```{r tab3}
+my_title <- "Cross description"
+
+cross_desc <- penguins %>%
+  select(bill_length_mm, sex) %>%
+  group_by(sex) %>%
+  summarise(
+    n = sum(!is.na(bill_length_mm)),
+    na = sum(is.na(bill_length_mm)),
+    mean = mean(bill_length_mm, na.rm = TRUE),
+    median = median(bill_length_mm, na.rm = TRUE),
+    sd = round(
+      sd(bill_length_mm, na.rm = TRUE), 2
+    ),
+    q1 = quantile(bill_length_mm, 0.25, na.rm = TRUE),
+    q3 = quantile(bill_length_mm, 0.75, na.rm = TRUE)
+  )
+
+# show the table 
+gt::gt(cross_desc) %>% 
+  gt::tab_header(title = my_title) %>%
+  gt::opt_row_striping()
+```
+
+<br> 
+
+Comment : We can note analyse missing data, we will remove lines with empty values in "bill_length_mm" or "sex".
+
+```{r filter_na}
+# select : 
+dt_select <- penguins[, c("bill_length_mm", "sex")]
+# filter :
+df_withoutna <- dt_select[complete.cases(dt_select), ]
+# same :
+# df_withoutna <- dt_select[
+#   !is.na(dt_select$bill_length_mm) & !is.na(dt_select$sex),
+# ]
+# also see na.omit()
+
+# dim(df_withoutna)
+```
+
+**Figures**
+
+<br> 
+
+  + basic
+
+<br> 
+
+```{r viz1_basic}
+# jpeg(file.path(annexe_directory, "density_basic.jpg"))
+# plot(
+#   density(df_withoutna$bill_length_mm),
+#   main = "Density bill_length_mm")
+# dev.off()
+
+plot(
+  density(df_withoutna$bill_length_mm[df_withoutna$sex %in% "female"]), 
+  main = "Density bill_length_mm for female")
+
+plot(
+  density(df_withoutna$bill_length_mm[df_withoutna$sex %in% "male"]),
+  main = "Density bill_length_mm for male")
+```
+
+<br>
+
+  + ggplot style
+
+<br> 
+
+```{r viz1_gg}
+gg1 <- ggplot(data = df_withoutna, mapping = aes(bill_length_mm)) + 
+  geom_density() + 
+  labs(title = "Density bill_length_mm") +
+  theme_light()
+
+ggsave(filename = file.path(annexe_directory, "gg1.jpg"), plot = gg1) # save it
+
+# and 
+
+gg1 # show it 
+```
+
+<br>
+
+  + basic
+
+<br> 
+
+```{r viz2_basic}
+plot(density(df_withoutna$bill_length_mm), main = "Density bill_length_mm")
+```
+
+<br>
+
+  + ggplot style
+
+<br> 
+
+```{r viz2_gg}
+gga <- ggplot(data = df_withoutna, mapping = aes(bill_length_mm)) + 
+    geom_boxplot() + 
+    labs(title = "boxplot bill_length_mm") +
+    theme_light()
+
+ggb <- ggplot(data = df_withoutna, mapping = aes(bill_length_mm, sex)) + 
+    geom_boxplot() + 
+    labs(title = "boxplot bill_length_mm", subtitle = "by sex") +
+    theme_light()
+
+# patchwork : 
+gga + ggb
+
+```
+
+<br>
+
+  + basic
+
+<br> 
+
+```{r viz3_basic}
+barplot(table(df_withoutna$sex), main = "Barplot sex")
+```
+
+<br>
+
+  + ggplot style
+
+<br> 
+
+```{r viz3_gg}
+gg1 <- ggplot(data = df_withoutna, mapping = aes(sex)) + 
+  geom_bar() + 
+  labs(title = "Barplot sex") +
+  theme_light()
+```
+
+<br>
+
+\newpage
+
+## 2)	Finally, we test it.
+
+<br> 
+
+We want to compare bill_length_mm between 2 groups = sex (A = female and B = male).
+
+Hypotheses:
+
+  + Null hypothesis ($H_0$): The two groups come from the same distribution. (median information)
+	
+  + Alternative ($H_1$): The distributions differ in location.
+	
+Assumptions:
+
+<br>
+
+	+ Data in each group are approximately normal ? 
+	  Graphically it doesn't look normal for each group & Shapiro test confirms. 
+
+<br>
+
+```{r test_hyp_norm, include=FALSE}
+shapiro.test(df_withoutna$bill_length_mm[df_withoutna$sex %in% "female"])
+shapiro.test(df_withoutna$bill_length_mm[df_withoutna$sex %in% "male"])
+```
+
+<br>
+
+	+ Observations are independent.
+	  Yes, 2 penguins can only be female **or** male, not both.
+
+<br>
+
+```{r final_test, eval = FALSE}
+wilcox.test(bill_length_mm ~ sex, data = df_withoutna)
+```
+
+<br>
+
+```{r final_test_gt}
+mytest <- wilcox.test(bill_length_mm ~ sex, data = df_withoutna)
+mytab <-  broom::tidy(mytest)
+mytab$statistic <- NULL # remove
+
+gt::gt(
+  mytab
+) %>% 
+  gt::fmt_number(
+    columns = starts_with("estimate"),
+    decimals = 2,
+    use_seps = F
+  ) %>% 
+  gt::fmt_scientific(columns = "p.value") %>% 
+  gt::tab_header(
+    title = "Statistical Test :  Median comparison"
+  ) 
+```
+
+\newpage
+
+## 3)	Check out {gtsummary} R pkg.
+
+The {gtsummary} package provides an elegant and flexible way to create publication-ready analytical and summary tables using the R programming language. 
+
+```{r gts}
+# install.packages("gtsummary")
+library(gtsummary)
+
+gtsummary::tbl_summary(data = penguins[, c("sex", "bill_length_mm")])
+
+cat("\n\n")
+
+gtsummary::tbl_summary(
+  data = penguins[, 
+     c("species", "sex", "bill_length_mm", "bill_depth_mm")
+  ],
+  statistic = list(
+    all_continuous() ~
+       "Med = {median} (Q1 = {p25}, Q3 = {p75}) ; Mean = {mean}", 
+    all_categorical() ~ 
+       "n = {n} ({p} %)"
+  )
+)
+
+cat("\n\n")
+
+gtsummary::tbl_summary(
+  data = penguins[, c("sex", "bill_length_mm")],
+  by = sex
+)
+
+cat("\n\n")
+
+table_res <- penguins %>% 
+  tbl_summary(
+    include = c(bill_length_mm), # select
+    by = sex, # split table by group
+    missing = "no" # don't list missing data separately, p.e.
+  ) %>% 
+  add_n() %>%  # add column with total number of non-missing observations
+  add_p() %>%  # test for a difference between groups
+  modify_header(label = "**My Variable**") %>%  # update the column header
+  bold_labels()
+
+# show it :
+table_res
+
+```
+
+
+\newpage
+
+
+```{r citation, include=FALSE}
+citation("data.table")
+citation("broom")
+citation("dplyr")
+citation("ggplot2")
+citation("patchwork")
+citation("car")
+citation("gt")
+citation("gtsummary")
+```

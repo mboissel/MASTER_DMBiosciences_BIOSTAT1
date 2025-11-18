@@ -3,7 +3,6 @@
 
 ## Mathilde Boissel 
 
-
 #### basic introduction ####
 
 1 + 1
@@ -26,6 +25,7 @@ mylist
 x == 2
 x %in% vec
 vec %in% x
+vec
 TRUE & TRUE
 TRUE & FALSE
 FALSE & FALSE
@@ -40,14 +40,14 @@ is.factor(x)
 
 ?iris # from : # library(datasets)
 head(iris)
-
+tail(iris)
 is.data.frame(iris)
 is.list(iris) # a data frame is a list of vector
 
 # access to an element of a list : "$"
 iris$Sepal.Length
 is.vector(iris$Sepal.Length)
-is.numric(iris$Sepal.Length)
+is.numeric(iris$Sepal.Length)
 
 # also possible with `[[`
 iris[["Species"]]
@@ -62,7 +62,7 @@ my_tab <- data.frame(
 my_tab
 str(my_tab)
 # 'data.frame':	10 obs. of  3 variables:
-#   $ let  : chr  "A" "B" "C" "D" ...
+# $ let  : chr  "A" "B" "C" "D" ...
 # $ num  : int  11 12 13 14 15 16 17 18 19 20
 # $ other: Factor w/ 2 levels "blue","red": 1 1 1 1 1 2 2 2 2 2
 
@@ -335,6 +335,7 @@ collection3 <- strsplit(x = collection3, split = "\t")[[1]]
 
 table(collection3)
 table(collection3, useNA = "ifany")
+table(collection3, useNA = "always")
 
 ##### ExD #####
 Travel_out_FR <- c("Yes
@@ -372,9 +373,9 @@ table(Where, useNA = "always")
 
 
 ##### ExE ####
-boxplot(...)
+boxplot( c(170, 190, 201, 204, 209, 250, 254, 257, 280))
 
-IQR(...)
+IQR( c(170, 190, 201, 204, 209, 250, 254, 257, 280))
 
 
 #### 3.2 – EXPLORATORY DATA ANALYSIS ####
@@ -976,4 +977,6 @@ train(Y ~ X1 + X2, data = df, method = "lm", trControl = train_control)
 ## LOOCV
 train_control <- trainControl(method = "LOOCV")
 train(Y ~ X1 + X2, data = df, method = "lm", trControl = train_control)
+
+
 

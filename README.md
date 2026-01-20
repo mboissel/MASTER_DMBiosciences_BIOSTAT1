@@ -125,7 +125,4 @@ To start,
 
 ## Practical Sessions
 
-### Session 1
-
-### Session 2
-
+See Practical[num]\_BiostatI\_[date].R

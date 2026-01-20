@@ -1,0 +1,335 @@
+---
+title: "Analysis of variance (one way ANOVA)"
+author: "Mathilde Boissel"
+date: "21/11/2025"
+output:
+  word_document:
+    toc: yes
+    toc_depth: 3
+always_allow_html: true
+editor_options:
+  chunk_output_type: console
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+library(tidyverse)
+options(stringsAsFactors = FALSE)
+```
+
+\newpage 
+
+
+# Study of juice yield from three apple varieties
+
+For each variety, four trees are sampled. The following question arises: **Is there a significant difference between these three varieties in terms of average juice yield?**
+
+## Dataset introduction
+
++ <u>Built it</u> 
+ 
+
+```{r data-pommmes}
+## data in group
+pommes_by_group <- data.frame(
+  Golden = c(48,46,52,50),
+  Delicious = c(52,50,49,49), 
+  Jonagold = c(53,51,55,57)
+)
+## data long format
+pommes <- data.frame(
+  rendement = c(48,46,52,50,52,50,49,49,53,51,55,57),
+  variete = factor(rep(c("Golden","Delicious","Jonagold"), rep(4,3)))
+)
+```
+
+There are many other ways to construct this data frame. For example, there is the `gl` command for constructing factors, which can be used as follows:  
+
+```{r, gl}
+variete_facteur <- gl(n = 3, k = 4, label = c("Golden","Delicious","Jonagold"))
+```
+
+There are 3 modalities for the “variete”, 4 repetitions, and we give names to the modalities of the factor (for more information, see `help("gl")`). 
+
++ <u>Note the difference in structure by displaying the data.</u> 
+  
+```{r data-pommmes-show, echo=FALSE, eval = TRUE}
+# kable is an alternative to gt::gt(), to display tables
+knitr::kable(
+  x = pommes_by_group, 
+  caption = "Visualisation grouped format"
+) 
+knitr::kable(
+  x = pommes, 
+  caption = "Visualisation long format"
+) 
+```
+
+Data is often collected in groups, whereas to process it in R we need a single observation per line. We therefore need to organize the data with each variable (in this case, “rendement” -yield- and “variete” -variety-) in a column and one line per observation.
+
+For the rest of this study, we will use the dataset named “pommes” in long format.
+
+## Understand the studied population before testing.
+
++ <u>Ensure that the variable to be explained (“rendement”) is numerical and that the explanatory variable “variete” is indeed a factor</u>  
+
+```{r, str}
+str(pommes)
+is.data.frame(pommes)
+is.numeric(pommes$rendement)
+is.factor(pommes$variete) 
+class(pommes)
+class(pommes$rendement)
+class(pommes$variete)
+```
+
+`str` displays the internal structure of an object R in a compact format. Functions `is.[type]` check the `[type]` of an R object  and return the boolean value (TRUE/FALSE). Here understand that `[type]` should be replaced with the class you want to test. The class function returns the class (i.e., the type) of an object R. By executing the command `?class`, you can get an idea of some existing types, for example.
+
+## Describe and visualise
+
++ <u>Visualiser les données avec le graphique adéquat.</u> `?boxplot`  
+
+```{r viz-pommmes}
+## base / stats
+means <- aggregate(rendement ~ variete, data = pommes, FUN = mean)
+boxplot(formula = rendement ~ variete, data = pommes, main = "Boite à moustaches")
+points(1:3, means$rendement, col = "red")
+```
+
+```{r viz-pommmes-gg}
+## ggplot2
+ggplot(
+  data = pommes, 
+  mapping = aes(x = variete, y = rendement, color = variete)
+) + 
+  geom_boxplot() +
+  geom_jitter(shape = 21, position = position_jitter(0.2)) + 
+  stat_summary(
+    fun = mean, geom = "point", shape = 20, color = "firebrick2", fill = "firebrick2", size = 3
+  ) +
+  scale_color_viridis_d(end = 0.8) + 
+  theme_bw() + 
+  labs(title = "Boxplot Rendement ~ Varietes")
+```
+
+
+Boxplots are displayed for the observations corresponding to each level (modality) of the “variete” factor. If the boxplots are shifted, we can suspect an effect of the factor.
+
++ <u>Describe / summarize the data.</u>  
+
+```{r summary-pommmes}
+summary(pommes$rendement)
+summary(pommes$variete) # summary.factor(pommes$variete)
+table(pommes$variete)
+```
+
+`summary` is a generic function that will invoke the summary method. `[type]` adapted to the object R of a certain `[type]`. Here, for “variete,” which is a factor, the `summary(pommes$variete)` function actually applies `summary.factor(pommes$variete)` without us having to make the distinction ourselves.
+
++ <u>What about missing values ?</u>  
+
+`summary` will specify the number of missing observations in the `NA's` column.
+`table` only displays the number of missing observations if the `useNA` option is specified with the value “ifany” or “always.”
+To obtain this answer, we can either read the documentation for `?table`
+or directly experiment on a small test vector `table(c(1, 2, 3, NA))`.
+
++ <u>Sum up data by group</u>  
+
+Sum up with `?aggregate ?tapply` :
+
+```{r groupbysummary-pommes}
+## base / stat
+n_group <- aggregate(rendement ~ variete, data = pommes, FUN = length)
+mean_group <- aggregate(rendement ~ variete, data = pommes, FUN = mean)
+sd_group <- aggregate(rendement ~ variete, data = pommes, FUN = sd)
+na_group <- aggregate(rendement ~ variete, data = pommes, FUN = function(x) sum(is.na(x)))
+
+## example with tapply
+mean_tapply <- tapply(X = pommes$rendement, INDEX = pommes$variete, FUN = mean)
+``` 
+
+Sum up with `dplyr` :
+
+```{r groupbysummary-dplyr}
+## dplyr
+pommes %>% 
+  dplyr::group_by(variete) %>% 
+  dplyr::summarise(
+    n = n(), 
+    mean = mean(rendement), # /!\ mean(, na.rm = TRUE)
+    sd = sd(rendement), # /!\ sd(, na.rm = TRUE)
+    NA_rendement = sum(is.na(rendement))
+  ) %>% 
+  dplyr::ungroup() 
+
+## many other way exist...
+# pommes %>% 
+#   group_by(variete) 
+#   rstatix::get_summary_stats(rendement, type = "mean_sd")
+``` 
+
+
+It is important to keep in mind the default options for these basic functions when applying them.
+A good practice would be to make them explicit each time they are used. 
+For example, pay attention to the option na.rm = FALSE, which indicates that missing values will not be removed by default. 
+Here, the calculation of the mean would fail if there were missing values.
+
++ <u>Check normality </u>  
+
+```{r norm-pommes}
+## With a density plot
+plot(
+  density(pommes$rendement), 
+  col = "black", 
+  lty = 1, 
+  main = "Distribution"
+)
+mr = mean(pommes$rendement, na.rm = TRUE)
+sdr = sd(pommes$rendement, na.rm = TRUE)
+x_norm = seq(-4,4,length=100) * sdr + mr
+lines(
+  x = x_norm, 
+  y = dnorm(x = x_norm, mean = mr, sd = sdr), 
+  col = "red", lty = 2
+)
+
+## with histogram
+hist(x = pommes$rendement, main = "Histogram")
+
+##  with a normal qqplot
+qqnorm(pommes$rendement)
+qqline(pommes$rendement)
+```
+
+
+```{r norm-pommes-gg}
+## ggplot
+ggplot(data = pommes, mapping = aes(x = rendement)) + 
+  geom_histogram(
+    mapping = aes(y=..density..), 
+    position="identity", binwidth = 2, alpha = 0.5, color = "grey20"
+  ) +
+  geom_density() + 
+  stat_function(
+    fun = dnorm, n = 101, args = list(mean = mr, sd = sdr), 
+    color = "red", 
+    inherit.aes = FALSE
+  ) + 
+  theme(legend.position = "none")
+```
+
+we can use the Shapiro-Wilk test also : 
+
+```{r shapiro-pommmes}
+shapiro.test(x = pommes$rendement)
+```
+
+
+We recall the null hypothesis H0: the variable is normally distributed.
+If the p-value is less than a chosen alpha level (e.g., 0.05), then the null hypothesis is rejected.
+To assume normality of the residuals, it is therefore necessary to obtain a p-value > 0.05. 
+
+(Here p-value = 0.96, we do not reject H0)
+
+
+## Test ANOVA 
+
+## Finally, we test it.
+
++ Read : `?stats::aov`
++ Read : `?stats::lm` 
++ Read : `?stats::anova`
+ 
+`?aov` said :  
+  "Fit an analysis of variance model by a call to lm for each stratum."
+
+`?lm` said :  
+  lm is used to fit linear models. 
+  It can be used to carry out regression, 
+  single stratum analysis of variance and analysis of covariance 
+  (although aov may provide a more convenient interface for these).
+
+`?anova` said :  
+  Compute analysis of variance (or deviance) tables for one or more
+  fitted model objects.
+
++ so ? 
+
+
+The aov function allows us to perform variance analysis, and we can see that it calls the lm function for each level (the modalities of our factor).  
+Therefore, lm is also suitable for answering our question, since we want to perform variance analysis. We can see that lm(rendement ~ variete, data = pommes) is therefore equivalent to aov(formula = rendement~variete, data = pommes) in our case.
+
+However, the output of the aov function is more convenient for answering the ANOVA question. The anova function allows us to test the significance of the predictors, so anova(lm(rendement ~ variete, data = pommes)) would also answer our question.
+
+N.B.: FYI, the anova function also allows us to test the addition of a predictor between a “null” model and an alternative model, for example (comparison between two or more models), but this point will not be discussed here.
+
+
+
++ <u>Perform the ANOVA and conclude</u>  
+
+```{r anova-pommmes}
+my_anova <- aov(formula = rendement~variete, data = pommes)
+my_anova
+```
+
+<br> 
+
+```{r summaryaov-pommmes}
+summary(my_anova)
+```
+
+Therefore, taking alpha=0.05, since p.value = 0.02778 < 0.05, we reject the null hypothesis H0:(m1=m2=m3). The varieties have different juice yields, and in saying this, we only have a 5 in 100 chance of being wrong. 
+
+We conclude that there is a significant variety effect.
+
+N.B.: However, if we take alpha=0.01, we do not reject H0. The effect is not very significant.
+
+
+## Perform the diagnosis
+
+
+```{r diag-pommmes}
+par(mfrow=c(2, 2)); plot(my_anova); 
+par(mfrow=c(1,1))
+```
+
+
++ No correlation between residuals: 
+  The residuals do not appear to be correlated with each other (Residuals vs. Fitted) since the red line is horizontal and at Y = 0. The value of the residuals does not appear to depend on the treatment since they are all centered around Y = 0 (Residuals vs. Factor Levels).
+
++ To check the normality of the residuals, we look at the Normal QQplot. Here, the points are well distributed along the line, which means that the residuals are distributed according to a normal distribution. The fact that the points are centered on 0 (on the y-axis) shows that their mean is equal to 0.
+
++ The assumption of homogeneity of variances, i.e., the assumption that the residuals have a constant variance, can be evaluated using the “Scale-Location” graph. The graphical method consists of plotting the standardized residuals against the predicted values (the means of the different factors). Here we can see that the dispersions of the residuals (their vertical deviations) relative to each treatment modality are broadly identical, so the assumption of homogeneity of residuals is accepted.
+
+Visually, these graphs appear to be within the norm. The stochastic assumptions are therefore acceptable, and we can therefore “trust” the results of the ANOVA test.
+
+Another solution: We can also access the model residuals, i.e., my_anova$residuals, and then test their normality, autocorrelation, etc.
+
+## Test post-hoc
+
+```{r posthoc-pommmes}
+TukeyHSD(x = my_anova)
+par(cex.axis=0.4)
+plot(TukeyHSD(my_anova))
+```
+
+This test provides us with adjusted p-values in the “p adj” column. Multiple test correction has already been taken into account.
+
+It is the Jonagold variety that has, on average, a different yield from the others.  
+```{r autres-post-hoc, eval=FALSE}
+# exemple
+pairwise.t.test(x = pommes$rendement, g = pommes$variete, p.adj = "bonf")
+pairwise.t.test(x = pommes$rendement, g = pommes$variete, p.adj = "holm")
+```
+
+
+
+# Ressources
+
+
++ Book [R Cookbook, 2nd Edition,  James (JD) Long, Paul Teetor, 2019-09-26](https://rc2e.com/linearregressionandanova)
+
++ [One Way ANOVA with R](https://bcdudek.net/anova/oneway_anova_basics.pdf) (oneway_anova_basics.pdf), Bruce Dudek, 2021-03-01.
+
+
